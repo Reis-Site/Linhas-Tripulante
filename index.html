@@ -3,12 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel Operacional PRO - Versão Final Consolidada</title>
+    <title>Consulta de linhas e tripulantes</title>
     <style>
         :root {
-            /* ALTERE A COR DE FUNDO DOS TOPO E BORDAS AQUI */
-            --primary: #1a3a5a;  
-            
+            --primary: #1a3a5a;
             --secondary: #2d3748;
             --bg: #f0f4f8;
             --note-bg: #fff5f5;
@@ -26,17 +24,19 @@
         .header { background: var(--primary); color: white; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); flex-shrink: 0; }
         .app-container { display: flex; flex: 1; overflow: hidden; flex-direction: column; padding: 10px; }
 
+        /* AJUSTE PARA CELULAR: Control Panel flexível */
         .control-panel { background: #fff; padding: 10px; border-radius: 8px 8px 0 0; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .filter-group { display: flex; align-items: center; gap: 5px; font-weight: bold; font-size: 12px; color: var(--primary); }
         
+        /* SELECTS REDUZIDOS PARA CABER NO CELULAR */
         select, input[type="text"] { 
             padding: 8px 4px; 
             border-radius: 4px; 
             border: 1px solid #cbd5e0; 
             outline: none; 
             font-size: 13px;
-            min-width: 60px; 
-            max-width: 130px; 
+            min-width: 60px; /* Largura mínima pequena para não quebrar */
+            max-width: 130px; /* Limita o tamanho para sobrar espaço lateral */
         }
 
         .tab-bar { display: flex; background: #e2e8f0; padding: 5px 15px 0; gap: 5px; }
@@ -51,7 +51,7 @@
         .card-header h4 { margin: 0; font-size: 15px; text-transform: uppercase; }
         .card-header .sub { display: block; font-size: 11px; margin-top: 4px; background: rgba(255,255,255,0.2); padding: 2px; border-radius: 4px; }
 
-        .mini-table { width: 100%; border-collapse: collapse; font-size: 12px; } 
+        .mini-table { width: 100%; border-collapse: collapse; font-size: 12px; } /* Letra aumentada conforme pedido anterior */
         .mini-table th { background: #f8fafc; border: 1px solid #e2e8f0; padding: 5px 2px; }
         .mini-table td { border: 1px solid #e2e8f0; padding: 4px 2px; text-align: center; }
         
@@ -67,14 +67,18 @@
         .btn-print { background: #2b6cb0; color: white; border: none; }
 
         @media print {
+            /* 1. Destrava a altura e remove barras de rolagem para a impressora */
             html, body { 
                 height: auto !important; 
                 overflow: visible !important; 
                 background: white !important; 
             }
+
             .header, .control-panel, .tab-bar, .btn-action, #sync-status { 
                 display: none !important; 
             }
+
+            /* 2. Ajusta o container para ocupar a folha toda */
             .app-container { 
                 display: block !important;
                 height: auto !important;
@@ -82,6 +86,7 @@
                 margin: 0 !important; 
                 overflow: visible !important;
             }
+
             .content-area { 
                 display: block !important;
                 height: auto !important;
@@ -89,25 +94,33 @@
                 padding: 0 !important; 
                 overflow: visible !important; 
             }
+
+            /* 3. TRANSFORMA O GRID EM DUAS COLUNAS NA IMPRESSÃO */
             .tabela-grid { 
                 display: flex !important; 
-                flex-wrap: wrap !important; 
+                flex-wrap: wrap !important; /* Faz os cards pularem para a próxima linha */
                 gap: 10px !important;
                 height: auto !important;
                 flex-direction: row !important;
             }
+
+            /* 4. CONFIGURAÇÃO DOS CARDS (48% para caber dois lado a lado com margem) */
             .card-tabela { 
                 box-shadow: none !important; 
                 border: 1px solid #000 !important; 
-                page-break-inside: avoid; 
+                page-break-inside: avoid; /* Impede que o card quebre no meio de duas folhas */
                 margin-bottom: 10px; 
-                width: 48% !important; 
+                width: 48% !important; /* Quase metade da página */
                 box-sizing: border-box;
             }
+
+            /* Cores e ajustes visuais para economia de tinta */
             .card-header { background: #eee !important; color: #000 !important; border-bottom: 1px solid #000; }
             .card-header .sub { color: #000 !important; background: none !important; border: 1px solid #ccc; }
             .mini-table th { background: #eee !important; color: #000 !important; border: 1px solid #000; }
             .mini-table td { border: 1px solid #000; }
+            
+            /* Preserva as cores de destaque */
             .intra-verde { background-color: #d4edda !important; -webkit-print-color-adjust: exact; }
             .td-garagem { background-color: #ffebeb !important; color: #c53030 !important; -webkit-print-color-adjust: exact; }
             .td-ter { background-color: #e1effe !important; color: #1e429f !important; -webkit-print-color-adjust: exact; }
@@ -130,10 +143,10 @@
         </div>
 
         <div id="filter-tabelas" class="filter-group">
-            <span>L:</span>
+            <span>Linha:</span>
             <select id="select-linha" onchange="atualizarListaTabelas()"></select>
             
-            <span id="label-tabela" class="hidden">T:</span>
+            <span id="label-tabela" class="hidden">Tab:</span>
             <select id="select-tabela" class="hidden" onchange="renderizarTabelas()"></select>
         </div>
 
@@ -143,8 +156,8 @@
     </div>
 
     <div class="tab-bar">
-        <button id="tab-t" class="tab-btn active" onclick="mudarAba('tabelas')">🗂️ Tab</button>
-        <button id="tab-p" class="tab-btn" onclick="mudarAba('tripulantes')">👤 Trip</button>
+        <button id="tab-t" class="tab-btn active" onclick="mudarAba('tabelas')">🗂️ Linhas</button>
+        <button id="tab-p" class="tab-btn" onclick="mudarAba('tripulantes')">👤 Tripulante</button>
     </div>
 
     <div class="content-area">
@@ -154,7 +167,78 @@
 
 <script>
     const URL_PLANILHA = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTnT2K7KGf-Tr8vC_E4gTgovxgxDNRkUtMAWZv2gHkUdrQDxNaMAUO_I-4tXeV1eSAa2FFH7_k-VD9p/pub?gid=0&single=true&output=csv";
-    const dicionarioLinhas = { "7": "007 Interbairros", "10": "010 Circular Direto", "502": "502 Maringá Velha", "801": "801 Terminal / Centro" };
+    const dicionarioLinhas = { 
+
+"7": "007 - INTERBAIRROS ZONA NORTE",
+"8": "008 - INTERBAIRROS",
+"9": "009 - INTERBAIRROS",
+"10": "010 - UNIVERSIDADE",
+"11": "011 - VILA ESPERANÇA",
+"20": "020 - AV. SÃO DOMINGOS",
+"21": "021 - AV. TUIUTI",
+"22": "022 - CJ. GUAIAPÓ",
+"23": "023 - CJ. REQUIÃO",
+"26": "026 - JD. PAULISTA",
+"40": "040 - A.A.B.B.",
+"41": "041 - JD. MONÇÕES",
+"131": "131 - JD. VITÓRIA",
+"137": "137 - CJ. HERMANNS M. DE BARROS",
+"138": "138 - MIOSÓTIS",
+"141": "141 - PQE. AVENIDA",
+"152": "152 - CJ. BRANCA VIEIRA",
+"162": "162 - CJ. LÉA LEAL",
+"169": "169 - JD. ALVORADA",
+"175": "175 - JD. SUMARÉ",
+"177": "177 - JD. EBENEZER - PQ. ITAIPU",
+"178": "178 - FLORIANO",
+"179": "179 - JD. ANDRADE",
+"201": "201 - IGUATEMI",
+"204": "204 - JD. LICCE",
+"205": "205 - THERMAS",
+"219": "219 - JD. IGUAÇU",
+"220": "220 - JD. SÃO CLEMENTE",
+"221": "221 - JD. INDAIÁ",
+"222": "222 - PRAÇA SAO VICENTE - JD. HIGIENÓPOLIS",
+"233": "233 - CJ. GUAIAPÓ",
+"234": "234 - CJ. CHAMPAGNAT",
+"235": "235 - JD. CAMPOS ELÍSEOS",
+"242": "242 - JD. AMÉRICA",
+"243": "243 - JD. LIBERDADE",
+"300": "300 - EURO GARDEN",
+"314": "314 - VILA NOVA",
+"323": "323 - JD. BERTIOGA",
+"324": "324 - CJ. PORTO SEGURO – CJ. THAÍS",
+"326": "326 - CJ. EUROPA",
+"334": "334 - CJ. CIDADE CANÇÃO",
+"335": "335 - CJ. SOL NASCENTE - MADRI",
+"414": "414 - HOSPITAL MUNICIPAL",
+"415": "415 - CJ. CIDADE ALTA",
+"416": "416 - CJ. CIDADE ALTA - VIA BRASIL",
+"417": "417 - JARDIM FRANÇA",
+"427": "427 - CERRO AZUL",
+"458": "458 - JD. UNIVERSO – VIA CERRO AZUL",
+"459": "459 - JD. UNIVERSO – VIA BORBA GATO",
+"460": "460 - JD. OLIMPICO",
+"461": "461 - JD. OURO COLA",
+"462": "462 - CATUAÍ",
+"466": "466 - CJ. BORBA GATO",
+"469": "469 - JD. BARCELONA",
+"512": "512 - COCAMAR – EBENEZER",
+"528": "528 - CEASA - JD. OÁSIS",
+"528A": "528A - AEROPORTO",
+"531": "531 - COPASA",
+"611": "611 - BUNGE",
+"713": "713 - PQ. HORTÊNCIA",
+"721": "721 - ATENAS",
+"722": "722 - CJ. NEY BRAGA",
+"734": "734 - PQ. DAS LARANJEIRAS",
+"735": "735 - JD. REBOUÇAS",
+"736": "736 - JD. PARIS",
+"739": "739 - JD. MUNIQUE",
+"ESPU": "ESPU - ESPECIAL URBANO",
+"UEM": "UEM - UNIVERSIDADE"
+
+ };
     let dadosGlobais = [];
     let abaAtual = 'tabelas';
 
@@ -184,7 +268,7 @@
 
     function processarCSV(texto, modo) {
         const linhas = texto.split(/\r?\n/);
-        const separador = lines[0].includes(';') ? ';' : ',';
+        const separador = linhas[0].includes(';') ? ';' : ',';
         const cab = linhas[0].split(separador);
         const f = (n) => cab.findIndex(c => c.trim().toLowerCase() === n.toLowerCase());
         const idx = { v: f('Veículo'), l: f('Linha'), t: f('Tripulante'), e: f('Evento'), o: f('Origem'), d: f('Destino'), i: f('Início'), f: f('Fim'), tipo: f('Tipo'), msg: f('Mensagem'), reap: f('Reaproveitar') };
@@ -212,6 +296,7 @@
         const unicas = [...new Set(dadosGlobais.map(d => d.linha))]
             .filter(l => l !== "")
             .sort((a, b) => {
+                // Ordenação Natural: trata números e letras corretamente
                 return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
             });
 
@@ -228,9 +313,7 @@
                 primeiroHorarioCarro[d.veiculo] = min;
             }
         });
-        return Object.keys(primeiroHorarioCarro).sort((a, b) => {
-            return primeiroHorarioCarro[a] - primeiroHorarioCarro[b];
-        });
+        return Object.keys(primeiroHorarioCarro).sort((a, b) => primeiroHorarioCarro[a] - primeiroHorarioCarro[b]);
     }
 
     function atualizarListaTabelas() {
@@ -271,14 +354,14 @@
         grid.innerHTML = veiculosParaRenderizar.map((v) => {
             const numTabela = todosVeiculosLinha.indexOf(v) + 1;
             const viagens = dadosGlobais.filter(x => x.veiculo === v && x.linha === linha).sort((a,b) => paraMinutos(a.ini, a.trip) - paraMinutos(b.ini, b.trip));
-            return gerarCard(traduzirLinha(linha), `TABELA ${String(numTabela).padStart(2,'0')} | CARRO ${v} | DIAS ÚTEIS`, viagens, true);
+            return gerarCard(traduzirLinha(linha), `TABELA ${String(numTabela).padStart(2,'0')} | CARRO ${v} | DIA UTIL`, viagens, true);
         }).join('');
     }
 
     function renderizarTripulantes() {
         const busca = document.getElementById('search-trip').value.trim().toLowerCase();
         const grid = document.getElementById('grid-main');
-        if(!busca) { grid.innerHTML = "<p>Digite o tripulante...</p>"; return; }
+        if(!busca) { grid.innerHTML = "<p>Digite para buscar...</p>"; return; }
         
         const todosTrips = [...new Set(dadosGlobais.map(d => d.trip))];
         let encontrados = todosTrips.filter(t => {
@@ -316,6 +399,7 @@
 
                 let infoTabela = "";
                 if (codLinha && veiculoAtual) {
+                    // Calcula a ordem da tabela para este veículo nesta linha específica
                     const ordenados = obterVeiculosOrdenados(codLinha);
                     const idxTabela = ordenados.indexOf(veiculoAtual) + 1;
                     if (idxTabela > 0) {
@@ -324,7 +408,7 @@
                 }
 
                 const carroTexto = veiculoAtual ? ` | CARRO ${veiculoAtual}` : "";
-                const subTexto = `${tituloAtividade}${infoTabela}${carroTexto} | DIAS ÚTEIS`;
+                const subTexto = `${tituloAtividade}${infoTabela}${carroTexto}`;
 
                 return gerarCard(`TRIPULANTE: ${t} | DIAS ÚTEIS`, subTexto, g, false);
             }).join('');
