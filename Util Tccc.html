@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta de linhas e tripulantes</title>
+    <style>
+        :root {
+            --primary: #1a3a5a;
+            --secondary: #2d3748;
+            --bg: #f0f4f8;
+            --note-bg: #fff5f5;
+            --note-border: #feb2b2;
+            --note-text: #9b2c2c;
+            --reap-bg: #ebf8ff;
+            --reap-text: #2b6cb0;
+            --garagem-bg: #ffebeb;
+            --garagem-text: #c53030;
+            --ter-bg: #e1effe;
+            --ter-text: #1e429f;
+        }
+
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        .header { background: var(--primary); color: white; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); flex-shrink: 0; }
+        .app-container { display: flex; flex: 1; overflow: hidden; flex-direction: column; padding: 10px; }
+
+        /* AJUSTE PARA CELULAR: Control Panel flexível */
+        .control-panel { background: #fff; padding: 10px; border-radius: 8px 8px 0 0; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .filter-group { display: flex; align-items: center; gap: 5px; font-weight: bold; font-size: 12px; color: var(--primary); }
+        
+        /* SELECTS REDUZIDOS PARA CABER NO CELULAR */
+        select, input[type="text"] { 
+            padding: 8px 4px; 
+            border-radius: 4px; 
+            border: 1px solid #cbd5e0; 
+            outline: none; 
+            font-size: 13px;
+            min-width: 60px; /* Largura mínima pequena para não quebrar */
+            max-width: 130px; /* Limita o tamanho para sobrar espaço lateral */
+        }
+
+        .tab-bar { display: flex; background: #e2e8f0; padding: 5px 15px 0; gap: 5px; }
+        .tab-btn { padding: 10px 15px; cursor: pointer; border: none; background: #cbd5e0; border-radius: 8px 8px 0 0; font-weight: bold; color: #4a5568; }
+        .tab-btn.active { background: white; color: var(--primary); border-top: 3px solid var(--primary); }
+
+        .content-area { flex: 1; background: white; border: 1px solid #e2e8f0; border-top: none; padding: 15px; overflow-y: auto; border-radius: 0 0 8px 8px; }
+        .tabela-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px; align-items: start; }
+
+        .card-tabela { border: 2px solid var(--primary); border-radius: 8px; background: white; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin-bottom: 10px; }
+        .card-header { background: var(--primary); color: white; padding: 8px; text-align: center; }
+        .card-header h4 { margin: 0; font-size: 15px; text-transform: uppercase; }
+        .card-header .sub { display: block; font-size: 11px; margin-top: 4px; background: rgba(255,255,255,0.2); padding: 2px; border-radius: 4px; }
+
+        .mini-table { width: 100%; border-collapse: collapse; font-size: 12px; } /* Letra aumentada conforme pedido anterior */
+        .mini-table th { background: #f8fafc; border: 1px solid #e2e8f0; padding: 5px 2px; }
+        .mini-table td { border: 1px solid #e2e8f0; padding: 4px 2px; text-align: center; }
+        
+        .card-footer { background: var(--note-bg); border-top: 1px solid var(--note-border); padding: 8px; font-size: 12px; color: var(--note-text); }
+        .reap-box { background: var(--reap-bg); color: var(--reap-text); padding: 4px; border-radius: 4px; margin-top: 4px; font-weight: bold; border: 1px solid #bee3f8; display: block; }
+        
+        .status-sync { font-size: 11px; padding: 4px 10px; border-radius: 20px; font-weight: bold; }
+        .online { background: #c6f6d5; color: #22543d; }
+        .manual { background: #feebc8; color: #7b341e; }
+        .hidden { display: none !important; }
+
+        .btn-action { background: #edf2f7; border: 1px solid #cbd5e0; padding: 7px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center; gap: 5px; }
+        .btn-print { background: #2b6cb0; color: white; border: none; }
+
+        @media print {
+            /* 1. Destrava a altura e remove barras de rolagem para a impressora */
+            html, body { 
+                height: auto !important; 
+                overflow: visible !important; 
+                background: white !important; 
+            }
+
+            .header, .control-panel, .tab-bar, .btn-action, #sync-status { 
+                display: none !important; 
+            }
+
+            /* 2. Ajusta o container para ocupar a folha toda */
+            .app-container { 
+                display: block !important;
+                height: auto !important;
+                padding: 0 !important; 
+                margin: 0 !important; 
+                overflow: visible !important;
+            }
+
+            .content-area { 
+                display: block !important;
+                height: auto !important;
+                border: none !important; 
+                padding: 0 !important; 
+                overflow: visible !important; 
+            }
+
+            /* 3. TRANSFORMA O GRID EM DUAS COLUNAS NA IMPRESSÃO */
+            .tabela-grid { 
+                display: flex !important; 
+                flex-wrap: wrap !important; /* Faz os cards pularem para a próxima linha */
+                gap: 10px !important;
+                height: auto !important;
+                flex-direction: row !important;
+            }
+
+            /* 4. CONFIGURAÇÃO DOS CARDS (48% para caber dois lado a lado com margem) */
+            .card-tabela { 
+                box-shadow: none !important; 
+                border: 1px solid #000 !important; 
+                page-break-inside: avoid; /* Impede que o card quebre no meio de duas folhas */
+                margin-bottom: 10px; 
+                width: 48% !important; /* Quase metade da página */
+                box-sizing: border-box;
+            }
+
+            /* Cores e ajustes visuais para economia de tinta */
+            .card-header { background: #eee !important; color: #000 !important; border-bottom: 1px solid #000; }
+            .card-header .sub { color: #000 !important; background: none !important; border: 1px solid #ccc; }
+            .mini-table th { background: #eee !important; color: #000 !important; border: 1px solid #000; }
+            .mini-table td { border: 1px solid #000; }
+            
+            /* Preserva as cores de destaque */
+            .intra-verde { background-color: #d4edda !important; -webkit-print-color-adjust: exact; }
+            .td-garagem { background-color: #ffebeb !important; color: #c53030 !important; -webkit-print-color-adjust: exact; }
+            .td-ter { background-color: #e1effe !important; color: #1e429f !important; -webkit-print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div style="font-weight: bold;">CONSULTA LINHAS E TRIPULANTES</div>
+    <div id="sync-status" class="status-sync hidden"></div>
+</div>
+
+<div class="app-container">
+    <div class="control-panel">
+        <div class="filter-group">
+            <button class="btn-action" onclick="document.getElementById('fileTest').click()">📂 CSV</button>
+            <input type="file" id="fileTest" accept=".csv" class="hidden" onchange="importarManual(this)">
+            <button class="btn-action btn-print" onclick="window.print()">🖨️</button>
+        </div>
+
+        <div id="filter-tabelas" class="filter-group">
+            <span>Linha:</span>
+            <select id="select-linha" onchange="atualizarListaTabelas()"></select>
+            
+            <span id="label-tabela" class="hidden">Tab:</span>
+            <select id="select-tabela" class="hidden" onchange="renderizarTabelas()"></select>
+        </div>
+
+        <div id="filter-tripulantes" class="filter-group hidden">
+            <input type="text" id="search-trip" placeholder="Busca Tripulante..." onkeyup="renderizarTripulantes()">
+        </div>
+    </div>
+
+    <div class="tab-bar">
+        <button id="tab-t" class="tab-btn active" onclick="mudarAba('tabelas')">🗂️ Linhas</button>
+        <button id="tab-p" class="tab-btn" onclick="mudarAba('tripulantes')">👤 Tripulante</button>
+    </div>
+
+    <div class="content-area">
+        <div id="grid-main" class="tabela-grid"></div>
+    </div>
+</div>
+
+<script>
+    const URL_PLANILHA = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTnT2K7KGf-Tr8vC_E4gTgovxgxDNRkUtMAWZv2gHkUdrQDxNaMAUO_I-4tXeV1eSAa2FFH7_k-VD9p/pub?gid=0&single=true&output=csv";
+    const dicionarioLinhas = { 
+
+"7": "007 - INTERBAIRROS ZONA NORTE",
+"8": "008 - INTERBAIRROS",
+"9": "009 - INTERBAIRROS",
+"10": "010 - UNIVERSIDADE",
+"11": "011 - VILA ESPERANÇA",
+"20": "020 - AV. SÃO DOMINGOS",
+"21": "021 - AV. TUIUTI",
+"22": "022 - CJ. GUAIAPÓ",
+"23": "023 - CJ. REQUIÃO",
+"26": "026 - JD. PAULISTA",
+"40": "040 - A.A.B.B.",
+"41": "041 - JD. MONÇÕES",
+"131": "131 - JD. VITÓRIA",
+"137": "137 - CJ. HERMANNS M. DE BARROS",
+"138": "138 - MIOSÓTIS",
+"141": "141 - PQE. AVENIDA",
+"152": "152 - CJ. BRANCA VIEIRA",
+"162": "162 - CJ. LÉA LEAL",
+"169": "169 - JD. ALVORADA",
+"175": "175 - JD. SUMARÉ",
+"177": "177 - JD. EBENEZER - PQ. ITAIPU",
+"178": "178 - FLORIANO",
+"179": "179 - JD. ANDRADE",
+"201": "201 - IGUATEMI",
+"204": "204 - JD. LICCE",
+"205": "205 - THERMAS",
+"219": "219 - JD. IGUAÇU",
+"220": "220 - JD. SÃO CLEMENTE",
+"221": "221 - JD. INDAIÁ",
+"222": "222 - PRAÇA SAO VICENTE - JD. HIGIENÓPOLIS",
+"233": "233 - CJ. GUAIAPÓ",
+"234": "234 - CJ. CHAMPAGNAT",
+"235": "235 - JD. CAMPOS ELÍSEOS",
+"242": "242 - JD. AMÉRICA",
+"243": "243 - JD. LIBERDADE",
+"300": "300 - EURO GARDEN",
+"314": "314 - VILA NOVA",
+"323": "323 - JD. BERTIOGA",
+"324": "324 - CJ. PORTO SEGURO – CJ. THAÍS",
+"326": "326 - CJ. EUROPA",
+"334": "334 - CJ. CIDADE CANÇÃO",
+"335": "335 - CJ. SOL NASCENTE - MADRI",
+"414": "414 - HOSPITAL MUNICIPAL",
+"415": "415 - CJ. CIDADE ALTA",
+"416": "416 - CJ. CIDADE ALTA - VIA BRASIL",
+"417": "417 - JARDIM FRANÇA",
+"427": "427 - CERRO AZUL",
+"458": "458 - JD. UNIVERSO – VIA CERRO AZUL",
+"459": "459 - JD. UNIVERSO – VIA BORBA GATO",
+"460": "460 - JD. OLIMPICO",
+"461": "461 - JD. OURO COLA",
+"462": "462 - CATUAÍ",
+"466": "466 - CJ. BORBA GATO",
+"469": "469 - JD. BARCELONA",
+"512": "512 - COCAMAR – EBENEZER",
+"528": "528 - CEASA - JD. OÁSIS",
+"528A": "528A - AEROPORTO",
+"531": "531 - COPASA",
+"611": "611 - BUNGE",
+"713": "713 - PQ. HORTÊNCIA",
+"721": "721 - ATENAS",
+"722": "722 - CJ. NEY BRAGA",
+"734": "734 - PQ. DAS LARANJEIRAS",
+"735": "735 - JD. REBOUÇAS",
+"736": "736 - JD. PARIS",
+"739": "739 - JD. MUNIQUE",
+"ESPU": "ESPU - ESPECIAL URBANO",
+"UEM": "UEM - UNIVERSIDADE"
+
+ };
+    let dadosGlobais = [];
+    let abaAtual = 'tabelas';
+
+    const traduzirLinha = (id) => dicionarioLinhas[id] || (id ? `Linha ${id}` : "");
+
+    const paraMinutos = (h, tripulante = "") => { 
+        if(!h) return 0; 
+        const p = h.split(':'); 
+        let hrs = parseInt(p[0]); 
+        let min = parseInt(p[1]);
+        const isMadrugadaEspecial = /^(?:[1-9]|10)M$/i.test(tripulante.trim());
+        if(!isMadrugadaEspecial && hrs < 4) hrs += 24; 
+        return hrs * 60 + min; 
+    };
+
+    window.onload = () => {
+        if(URL_PLANILHA.startsWith("http")) {
+            fetch(URL_PLANILHA).then(res => res.text()).then(txt => processarCSV(txt, "online")).catch(err => console.error("Erro nuvem"));
+        }
+    };
+
+    function importarManual(input) {
+        const reader = new FileReader();
+        reader.onload = (e) => processarCSV(e.target.result, "manual");
+        reader.readAsText(input.files[0], 'UTF-8');
+    }
+
+    function processarCSV(texto, modo) {
+        const linhas = texto.split(/\r?\n/);
+        const separador = linhas[0].includes(';') ? ';' : ',';
+        const cab = linhas[0].split(separador);
+        const f = (n) => cab.findIndex(c => c.trim().toLowerCase() === n.toLowerCase());
+        const idx = { v: f('Veículo'), l: f('Linha'), t: f('Tripulante'), e: f('Evento'), o: f('Origem'), d: f('Destino'), i: f('Início'), f: f('Fim'), tipo: f('Tipo'), msg: f('Mensagem'), reap: f('Reaproveitar') };
+        
+        dadosGlobais = linhas.slice(1).map(l => {
+            const c = l.split(separador);
+            if(c.length < 5) return null;
+            return { 
+                veiculo: c[idx.v]?.trim(), linha: c[idx.l]?.trim(), trip: c[idx.t]?.trim(), evento: c[idx.e]?.trim() || '',
+                origem: c[idx.o]?.trim(), destino: c[idx.d]?.trim(), ini: c[idx.i]?.trim(), fim: c[idx.f]?.trim(), 
+                tipo: c[idx.tipo]?.trim() || '', msg: c[idx.msg]?.trim() || '', reap: c[idx.reap]?.trim() || ''
+            };
+        }).filter(x => x);
+
+        const status = document.getElementById('sync-status');
+        status.className = `status-sync ${modo === 'online' ? 'online' : 'manual'}`;
+        status.textContent = modo === 'online' ? '● ON' : '● MAN';
+        status.classList.remove('hidden');
+
+        popularSelectLinhas();
+        mudarAba(abaAtual);
+    }
+
+    function popularSelectLinhas() {
+        const unicas = [...new Set(dadosGlobais.map(d => d.linha))]
+            .filter(l => l !== "")
+            .sort((a, b) => {
+                // Ordenação Natural: trata números e letras corretamente
+                return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+            });
+
+        document.getElementById('select-linha').innerHTML = '<option value="">Linha</option>' + 
+            unicas.map(l => `<option value="${l}">${l}</option>`).join('');
+    }
+
+    function obterVeiculosOrdenados(linha) {
+        const filtrados = dadosGlobais.filter(d => d.linha === linha);
+        const primeiroHorarioCarro = {};
+        filtrados.forEach(d => {
+            const min = paraMinutos(d.ini, d.trip);
+            if (!primeiroHorarioCarro[d.veiculo] || min < primeiroHorarioCarro[d.veiculo]) {
+                primeiroHorarioCarro[d.veiculo] = min;
+            }
+        });
+        return Object.keys(primeiroHorarioCarro).sort((a, b) => primeiroHorarioCarro[a] - primeiroHorarioCarro[b]);
+    }
+
+    function atualizarListaTabelas() {
+        const linha = document.getElementById('select-linha').value;
+        const selectTab = document.getElementById('select-tabela');
+        const labelTab = document.getElementById('label-tabela');
+        if (!linha) { selectTab.classList.add('hidden'); labelTab.classList.add('hidden'); renderizarTabelas(); return; }
+
+        const ordenados = obterVeiculosOrdenados(linha);
+        let options = '<option value="TODAS">TODAS</option>';
+        ordenados.forEach((v, index) => {
+            options += `<option value="${v}">T${String(index + 1).padStart(2, '0')}</option>`;
+        });
+        selectTab.innerHTML = options;
+        selectTab.classList.remove('hidden');
+        labelTab.classList.remove('hidden');
+        renderizarTabelas();
+    }
+
+    function mudarAba(aba) {
+        abaAtual = aba;
+        document.getElementById('tab-t').className = aba === 'tabelas' ? 'tab-btn active' : 'tab-btn';
+        document.getElementById('tab-p').className = aba === 'tripulantes' ? 'tab-btn active' : 'tab-btn';
+        document.getElementById('filter-tabelas').className = aba === 'tabelas' ? 'filter-group' : 'hidden';
+        document.getElementById('filter-tripulantes').className = aba === 'tripulantes' ? 'filter-group' : 'hidden';
+        aba === 'tabelas' ? renderizarTabelas() : renderizarTripulantes();
+    }
+
+    function renderizarTabelas() {
+        const linha = document.getElementById('select-linha').value;
+        const tabelaSelecionada = document.getElementById('select-tabela').value;
+        const grid = document.getElementById('grid-main');
+        if(!linha) { grid.innerHTML = "<p>Selecione Linha.</p>"; return; }
+
+        const todosVeiculosLinha = obterVeiculosOrdenados(linha);
+        let veiculosParaRenderizar = (tabelaSelecionada && tabelaSelecionada !== "TODAS") ? [tabelaSelecionada] : todosVeiculosLinha;
+
+        grid.innerHTML = veiculosParaRenderizar.map((v) => {
+            const numTabela = todosVeiculosLinha.indexOf(v) + 1;
+            const viagens = dadosGlobais.filter(x => x.veiculo === v && x.linha === linha).sort((a,b) => paraMinutos(a.ini, a.trip) - paraMinutos(b.ini, b.trip));
+            return gerarCard(traduzirLinha(linha), `TABELA ${String(numTabela).padStart(2,'0')} | CARRO ${v} | DIA UTIL`, viagens, true);
+        }).join('');
+    }
+
+    function renderizarTripulantes() {
+        const busca = document.getElementById('search-trip').value.trim().toLowerCase();
+        const grid = document.getElementById('grid-main');
+        if(!busca) { grid.innerHTML = "<p>Digite para buscar...</p>"; return; }
+        
+        const todosTrips = [...new Set(dadosGlobais.map(d => d.trip))];
+        let encontrados = todosTrips.filter(t => {
+            const tLow = t.toLowerCase();
+            return tLow === busca || tLow === busca + "m";
+        });
+        if(encontrados.length === 0) encontrados = todosTrips.filter(t => t.toLowerCase().includes(busca));
+
+        let htmlFinal = "";
+        encontrados.sort().forEach(t => {
+            const viagens = dadosGlobais.filter(x => x.trip === t).sort((a,b) => paraMinutos(a.ini, t) - paraMinutos(b.ini, t));
+            
+            let grupos = [];
+            let grupoAtual = [];
+            let ultimoIdentificador = null;
+
+            viagens.forEach(v => {
+                let idAtual = v.linha || v.evento;
+                if(idAtual !== ultimoIdentificador && grupoAtual.length > 0){
+                    grupos.push(grupoAtual);
+                    grupoAtual = [];
+                }
+                grupoAtual.push(v);
+                ultimoIdentificador = idAtual;
+            });
+            if(grupoAtual.length > 0) grupos.push(grupoAtual);
+
+            htmlFinal += grupos.map((g) => {
+                const codLinha = g[0].linha;
+                const nomeEvento = g[0].evento;
+                const veiculoAtual = g[0].veiculo;
+                
+                let tituloAtividade = codLinha ? traduzirLinha(codLinha) : nomeEvento;
+                if(tituloAtividade.includes("Intra-jornada")) tituloAtividade = "INTRA-JORNADA";
+
+                let infoTabela = "";
+                if (codLinha && veiculoAtual) {
+                    // Calcula a ordem da tabela para este veículo nesta linha específica
+                    const ordenados = obterVeiculosOrdenados(codLinha);
+                    const idxTabela = ordenados.indexOf(veiculoAtual) + 1;
+                    if (idxTabela > 0) {
+                        infoTabela = ` | TABELA ${String(idxTabela).padStart(2, '0')}`;
+                    }
+                }
+
+                const carroTexto = veiculoAtual ? ` | CARRO ${veiculoAtual}` : "";
+                const subTexto = `${tituloAtividade}${infoTabela}${carroTexto}`;
+
+                return gerarCard(`TRIPULANTE: ${t} | DIAS ÚTEIS`, subTexto, g, false);
+            }).join('');
+        });
+        grid.innerHTML = htmlFinal;
+    }
+
+    function gerarCard(titulo, sub, viagens, isTab) {
+        const notasOrdenadas = [];
+        const reapsOrdenados = [];
+        viagens.forEach(v => {
+            if(v.tipo || v.msg) {
+                const txt = `${v.tipo} - ${v.msg}`;
+                if(!notasOrdenadas.includes(txt)) notasOrdenadas.push(txt);
+            }
+            if(v.reap && !reapsOrdenados.includes(v.reap)) reapsOrdenados.push(v.reap);
+        });
+
+        let footer = "";
+        if(notasOrdenadas.length || reapsOrdenados.length) {
+            footer = `<div class="card-footer">`;
+            if(notasOrdenadas.length) footer += `<strong>OBS:</strong> ${notasOrdenadas.map(n => `<div>• ${n}</div>`).join('')}`;
+            if(reapsOrdenados.length) footer += reapsOrdenados.map(r => `<span class="reap-box">🔄 REAPROVEITAR: ${r}</span>`).join('');
+            footer += `</div>`;
+        }
+
+        return `<div class="card-tabela">
+            <div class="card-header"><h4>${titulo}</h4><span class="sub">${sub}</span></div>
+            <table class="mini-table">
+                <thead>
+                    <tr>
+                        ${isTab ? '<th>Trip.</th>' : '<th>Carro</th>'}
+                        <th>Ori</th>
+                        <th>Início</th>
+                        <th>Dest</th>
+                        <th>Fim</th>
+                        <th>Tipo</th>
+                    </tr>
+                </thead>
+                <tbody>${viagens.map(v => {
+                    let txtPrincipal = isTab ? v.trip : (v.veiculo || '---');
+                    let labelOriginal = v.linha || v.evento;
+                    let stylePrincipal = "";
+                    let printClassPrincipal = "";
+
+                    if (labelOriginal.includes("Intra-jornada não remunerada padrão")) {
+                        txtPrincipal = "PAUSA";
+                        stylePrincipal = 'style="background-color: #d4edda; font-weight: bold;"';
+                        printClassPrincipal = "intra-verde";
+                    }
+
+                    const formatarLocal = (texto, ehOrigem) => {
+                        if (texto === "G-NOR" || texto === "G-SUL") {
+                            return { 
+                                valor: "GAR", 
+                                style: 'style="background-color: var(--garagem-bg); color: var(--garagem-text); font-weight: bold;"',
+                                printClass: 'td-garagem'
+                            };
+                        }
+                        if (ehOrigem && texto === "TER") {
+                            return { 
+                                valor: "TER", 
+                                style: 'style="background-color: var(--ter-bg); color: var(--ter-text); font-weight: bold;"',
+                                printClass: 'td-ter'
+                            };
+                        }
+                        return { valor: texto, style: "", printClass: "" };
+                    };
+
+                    const ori = formatarLocal(v.origem, true);
+                    const des = formatarLocal(v.destino, false);
+
+                    return `<tr>
+                        <td class="${printClassPrincipal}" ${stylePrincipal}>${txtPrincipal}</td>
+                        <td class="${ori.printClass}" ${ori.style}>${ori.valor}</td>
+                        <td style="font-weight:bold">${v.ini}</td>
+                        <td class="${des.printClass}" ${des.style}>${des.valor}</td>
+                        <td>${v.fim}</td>
+                        <td style="font-weight:bold">${v.tipo}</td>
+                    </tr>`;
+                }).join('')}</tbody>
+            </table>
+            ${footer}
+        </div>`;
+    }
+</script>
+</body>
+</html>
