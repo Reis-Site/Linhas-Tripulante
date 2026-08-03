@@ -410,7 +410,7 @@
                 const carroTexto = veiculoAtual ? ` | CARRO ${veiculoAtual}` : "";
                 const subTexto = `${tituloAtividade}${infoTabela}${carroTexto}`;
 
-                return gerarCard(`TRIPULANTE: ${t} | DIAS ÚTEIS`, subTexto, g, false);
+                return gerarCard(`TRIPULANTE: ${t} | DOM/FER`, subTexto, g, false);
             }).join('');
         });
         grid.innerHTML = htmlFinal;
